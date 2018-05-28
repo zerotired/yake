@@ -12,9 +12,9 @@ use args::create_cli_app;
 use std::process::exit;
 use yaml::load_yml_from_file;
 
-mod yaml;
-pub mod yake;
 mod args;
+pub mod yake;
+mod yaml;
 
 fn main() {
     let yake_args = create_cli_app();
@@ -22,8 +22,10 @@ fn main() {
     let yake = load_yml_from_file("Yakefile");
     match yake.has_target_name(&yake_args.target) {
         Err(x) => {
-            eprintln!("Unknown target: '{}' Available targets are: {:?}",
-                      yake_args.target, x);
+            eprintln!(
+                "Unknown target: '{}' Available targets are: {:?}",
+                yake_args.target, x
+            );
             exit(1);
         }
         _ => (),
