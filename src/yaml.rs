@@ -9,7 +9,5 @@ pub fn load_yml_from_file(filename: &str) -> Yake {
 
     f.read_to_string(&mut contents).expect("Error while reading file.");
 
-    let yake: Yake = serde_yaml::from_str(&contents).expect("Unable to parse");
-
-    yake.fabricate()
+    serde_yaml::from_str(&contents).expect("Unable to parse")
 }

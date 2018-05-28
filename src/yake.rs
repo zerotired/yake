@@ -12,10 +12,6 @@ pub struct Yake {
     pub env: Option<HashMap<String, String>>,
     /// Main targets
     pub targets: HashMap<String, YakeTarget>,
-    /// Flag indicates, whether the object was fabricated already.
-    /// Not deserialized from yaml.
-    #[serde(skip)]
-    fabricated: bool,
     /// Normalized, flattened map of all targets.
     /// Not deserialized from yaml.
     #[serde(skip)]
@@ -183,24 +179,6 @@ impl Yake {
             .clone()
     }
 
-    /// Creates some kind of cached / fabricated object
-    /// This is possibly not useful at all.
-    /// TODO: check whether it's needed or not.
-    pub fn fabricate(&self) -> Yake {
-        if self.fabricated {
-            return self.clone();
-        }
-
-        let y = Yake {
-            all_targets: self.get_all_targets(),
-            dependencies: self.get_all_dependencies(),
-            fabricated: true,
-            ..self.clone()
-        };
-
-        return y;
-    }
-
     /// Execute a target and it's dependencies.
     pub fn execute(&self, target_name: &str) -> Result<String, String> {
         if self.has_target_name(target_name).is_err() {
@@ -349,7 +327,6 @@ mod tests {
                 doc: "Bla".to_string(),
                 version: "1.0.0".to_string(),
             },
-            fabricated: false,
             all_targets: HashMap::new(),
         }
     }
