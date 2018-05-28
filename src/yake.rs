@@ -262,49 +262,70 @@ impl YakeTarget {
     }
 }
 
-#[allow(dead_code)]
-fn get_all_targets<'a>(yake: &'a Yake) -> Vec<&'a YakeTarget> {
-    let mut ret = Vec::new();
-
-    ret.push(yake.targets.get("test").unwrap());
-
-    ret
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_ref() {
-        let targets: HashMap<String, YakeTarget> =
-            [("base".to_string(),
-              YakeTarget {
-                  targets: None,
-                  meta: YakeTargetMeta {
-                      doc: "Huhu".to_string(),
-                      target_type: YakeTargetType::Cmd,
-                      depends: None,
-                  },
-                  env: None,
-                  exec: None,
-              }),
-                ("test".to_string(),
-                 YakeTarget {
-                     targets: None,
-                     meta: YakeTargetMeta {
-                         doc: "Huhu".to_string(),
-                         target_type: YakeTargetType::Cmd,
-                         depends: Some(vec!["base".to_string()]),
-                     },
-                     env: None,
-                     exec: None,
-                 })].iter().cloned().collect();
+    fn get_yake_targets() -> HashMap<String, YakeTarget> {
+        let callable_target = YakeTarget {
+            targets: None,
+            meta: YakeTargetMeta {
+                doc: "Huhu".to_string(),
+                target_type: YakeTargetType::Callable,
+                depends: Some(vec!["base".to_string()]),
+            },
+            env: None,
+            exec: None,
+        };
 
+        let sub_target = YakeTarget {
+            targets: None,
+            meta: YakeTargetMeta {
+                doc: "Subtarget".to_string(),
+                target_type: YakeTargetType::Callable,
+                depends: Some(vec!["base".to_string()]),
+            },
+            env: None,
+            exec: None,
+        };
+
+        let group_target = YakeTarget {
+            targets: Some([("sub".to_string(), sub_target)].iter().cloned().collect()),
+            meta: YakeTargetMeta {
+                doc: "Grouptarget".to_string(),
+                target_type: YakeTargetType::Group,
+                depends: None,
+            },
+            env: None,
+            exec: None,
+        };
+
+        [("base".to_string(),
+            YakeTarget {
+              targets: None,
+              meta: YakeTargetMeta {
+                  doc: "Base".to_string(),
+                  target_type: YakeTargetType::Callable,
+                  depends: None,
+              },
+              env: None,
+              exec: None,
+            }),
+            ("test".to_string(), callable_target),
+            ("group".to_string(), group_target)].iter().cloned().collect()
+    }
+
+    fn get_yake_dependencies(targets: & HashMap<String, YakeTarget>) -> HashMap<String, Vec<YakeTarget>> {
         let mut dependencies = HashMap::new();
         dependencies.insert("test".to_string(), vec![targets.get(&"base".to_string()).unwrap().clone()]);
+        return dependencies
+    }
 
-        let yake = Yake {
+    fn get_yake() -> Yake {
+        let targets = get_yake_targets();
+        let dependencies = get_yake_dependencies(&targets);
+
+        Yake{
             targets,
             dependencies,
             env: None,
@@ -314,9 +335,58 @@ mod tests {
             },
             fabricated: false,
             all_targets: HashMap::new(),
+        }
+    }
 
-        };
+    #[test]
+    fn test_get_all_targets() {
+        let yake = get_yake();
 
-        let _targets = get_all_targets(&yake);
+        let all_targets = yake.get_all_targets();
+        assert_eq!(all_targets.len(), 4);
+    }
+
+    #[test]
+    fn test_get_all_dependencies() {
+        let yake = get_yake();
+        let dependencies = yake.get_all_dependencies();
+        assert_eq!(dependencies.len(), 3);
+        assert_eq!(dependencies.get("test").unwrap().len(), 1);
+        assert_eq!(dependencies.get("base").unwrap().len(), 0);
+        assert_eq!(dependencies.get("group.sub").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_get_target_by_name() {
+        let yake = get_yake();
+        assert_eq!(yake.get_target_by_name("group.sub").is_some(), true);
+        assert_eq!(yake.get_target_by_name("base").is_some(), true);
+        assert_eq!(yake.get_target_by_name("sub").is_none(), true);
+    }
+
+    #[test]
+    fn test_has_target_name() {
+        let yake = get_yake();
+        assert_eq!(yake.has_target_name("group.sub").is_ok(), true);
+        assert_eq!(yake.has_target_name("sub").is_err(), true);
+        assert_eq!(yake.has_target_name("sub").err().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn test_get_target_names() {
+        let yake = get_yake();
+        let names = yake.get_target_names();
+        assert_eq!(names.len(), 3);
+        assert_eq!(names.contains(&"group.sub".to_string()), true);
+        assert_eq!(names.contains(&"base".to_string()), true);
+        assert_eq!(names.contains(&"test".to_string()), true);
+    }
+
+    #[test]
+    fn test_get_dependencies_by_name() {
+        let yake = get_yake();
+        let dependencies = yake.get_dependencies_by_name("group.sub");
+        assert_eq!(dependencies.len(), 1);
+        assert_eq!(dependencies[0].meta.doc, "Base".to_string());
     }
 }
