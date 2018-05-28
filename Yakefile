@@ -7,7 +7,7 @@ targets:
   base:
     meta:
       doc: "Test command"
-      type: cmd
+      type: callable
     exec:
       - echo "i'm base"
   docker:
@@ -18,7 +18,7 @@ targets:
       postgres:
         meta:
           doc: "Docs for docker command"
-          type: cmd
+          type: callable
           depends:
             - base
             - docker2
@@ -31,7 +31,7 @@ targets:
   docker2:
     meta:
       doc: "Docs for docker command"
-      type: cmd
+      type: callable
     exec:
       - echo "docker 2"
   docker3:
@@ -42,7 +42,7 @@ targets:
       mysql:
         meta:
           doc: "Docs for docker mysql command"
-          type: cmd
+          type: callable
         env:
           - MYSQL_PORT=8765
         exec:
@@ -56,7 +56,7 @@ targets:
           mysqlsub:
             meta:
               doc: "Docs for docker mysql command"
-              type: cmd
+              type: callable
             env:
               - MYSQL_PORT=8765
             exec:

@@ -69,10 +69,10 @@ pub struct YakeTarget {
 /// Defines the different target types.
 #[derive(Debug, PartialEq, Clone)]
 pub enum YakeTargetType {
-    /// A group has no own commands, just sub-targets.
+    /// A Group has no own commands, just sub-targets.
     Group,
-    /// A cmd has no sub-targets, just commands.
-    Cmd,
+    /// A Callable has no sub-targets, just commands.
+    Callable,
 }
 
 /// Implements custom serde serializer for the YakeTargetType
@@ -82,7 +82,7 @@ impl Serialize for YakeTargetType {
     {
         serializer.serialize_str(match *self {
             YakeTargetType::Group => "group",
-            YakeTargetType::Cmd => "cmd"
+            YakeTargetType::Callable => "callable"
         })
     }
 }
@@ -95,7 +95,7 @@ impl<'de> Deserialize<'de> for YakeTargetType {
         let s = String::deserialize(deserializer)?;
         match s.as_str() {
             "group" => Ok(YakeTargetType::Group),
-            "cmd" => Ok(YakeTargetType::Cmd),
+            "callable" => Ok(YakeTargetType::Callable),
             _ => Err(D::Error::custom(format!("unknown target type '{}'", s)))
         }
     }
@@ -104,11 +104,11 @@ impl<'de> Deserialize<'de> for YakeTargetType {
 /// Implementation for the Yake object
 impl Yake {
 
-    /// Get's a list of all existing target names
+    /// Get's a list of all existing, callable target names
     pub fn get_target_names(&self) -> Vec<String> {
         let mut ret = Vec::new();
-        for (target_name, target) in &self.all_targets {
-            if target.meta.target_type == YakeTargetType::Cmd {
+        for (target_name, target) in &self.get_all_targets() {
+            if target.meta.target_type == YakeTargetType::Callable {
                 ret.push(target_name.clone());
             }
         }
@@ -134,7 +134,7 @@ impl Yake {
 
     /// Checks, whether a specific target name exists.
     pub fn has_target_name(&self, target_name: &str) -> Result<(), Vec<String>> {
-        if self.get_target_names().contains(&target_name.to_string()) {
+        if self.get_target_by_name(target_name).is_some() {
             Ok(())
         } else {
             Err(self.get_target_names().clone())
@@ -146,10 +146,15 @@ impl Yake {
         self.get_all_targets().get(&target_name.to_string()).cloned()
     }
 
-    /// Gets a normalized, flattened map of all dependencies for each target name.
+    /// Gets a normalized, flattened map of all dependencies for each callable target name.
+    /// Contains a vector for every callable target in the system, even if a target has no
+    /// dependencies.
     fn get_all_dependencies(&self) -> HashMap<String, Vec<YakeTarget>> {
         let mut ret: HashMap<String, Vec<YakeTarget>> = HashMap::new();
         for (target_name, target) in self.get_all_targets() {
+            if target.meta.target_type != YakeTargetType::Callable {
+                continue;
+            }
             ret.insert(target_name.clone(), Vec::new());
             for dependency_name in target.meta.depends.unwrap_or(vec![]).iter() {
                 let dep = self.get_target_by_name(dependency_name);
@@ -158,6 +163,7 @@ impl Yake {
                             dependency_name,
                             target_name).as_str()
                 );
+
                 ret.get_mut(&target_name).unwrap().push(dep_target);
             }
         }
@@ -167,7 +173,7 @@ impl Yake {
 
     /// Gets a list of dependencies for a target name.
     fn get_dependencies_by_name(&self, target_name: &str) -> Vec<YakeTarget> {
-        self.dependencies.get(target_name).unwrap().clone()
+        self.get_all_dependencies().get(target_name).unwrap().clone()
     }
 
     /// Creates some kind of cached / fabricated object
@@ -211,7 +217,7 @@ impl Yake {
                             .expect(&format!("failed to execute command \"{}\"", command));
                     }
                 },
-                _ => ()
+                None => ()
             }
         };
 
@@ -235,7 +241,7 @@ impl YakeTarget {
         let mut targets = HashMap::new();
         match self.targets {
             Some(ref x) => for (target_name, target) in x {
-                if target.meta.target_type == YakeTargetType::Cmd {
+                if target.meta.target_type == YakeTargetType::Callable {
                     let name = match prefix {
                         Some(ref x) => format!("{}.{}", x, target_name),
                         None => target_name.to_string(),
