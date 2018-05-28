@@ -9,7 +9,7 @@ pub struct Yake {
     /// Meta data
     pub meta: YakeMeta,
     /// Environment variables
-    pub env: Option<Vec<String>>,
+    pub env: Option<HashMap<String, String>>,
     /// Main targets
     pub targets: HashMap<String, YakeTarget>,
     /// Flag indicates, whether the object was fabricated already.
@@ -58,7 +58,7 @@ pub struct YakeTarget {
     /// Subordinate targets
     pub targets: Option<HashMap<String, YakeTarget>>,
     /// List of environment variables
-    pub env: Option<Vec<String>>,
+    pub env: Option<HashMap<String, String>>,
     /// List of commands to execute
     /// Will only be executed for `TargetType::Cmd`
     pub exec: Option<Vec<String>>,
@@ -211,6 +211,7 @@ impl Yake {
                         Command::new("bash")
                             .arg("-c")
                             .arg(command.clone())
+                            .envs(target.clone().env.unwrap_or_default())
                             .stdout(Stdio::inherit())
                             .stderr(Stdio::inherit())
                             .output()

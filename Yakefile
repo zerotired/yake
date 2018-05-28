@@ -2,7 +2,7 @@ meta:
   doc: "Some docs"
   version: 1.0.0
 env:
-  - PATH=$HOME/bin:$PATH
+  PATH: $HOME/bin:$PATH
 targets:
   base:
     meta:
@@ -24,10 +24,11 @@ targets:
             - docker2
             - docker3.mysql2.mysqlsub
         env:
-          - POSTGRES_PORT=8765
+          POSTGRES_PORT: 8765
         exec:
           - "echo {{meta.version}}"
           - cat /etc/hosts
+          - echo $POSTGRES_PORT
   docker2:
     meta:
       doc: "Docs for docker command"
@@ -44,7 +45,7 @@ targets:
           doc: "Docs for docker mysql command"
           type: callable
         env:
-          - MYSQL_PORT=8765
+          MYSQL_PORT: 8765
         exec:
           - "echo {{meta.version}}"
           - docker-compose build
@@ -58,6 +59,6 @@ targets:
               doc: "Docs for docker mysql command"
               type: callable
             env:
-              - MYSQL_PORT=8765
+              MYSQL_PORT: 8765
             exec:
               - echo "I am docker3.mysql2.mysqlsub"
