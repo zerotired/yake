@@ -269,6 +269,7 @@ impl YakeTarget {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_yaml;
 
     fn get_yake_targets() -> HashMap<String, YakeTarget> {
         let callable_target = YakeTarget {
@@ -403,5 +404,31 @@ mod tests {
         let dependencies = yake.get_dependencies_by_name("group.sub");
         assert_eq!(dependencies.len(), 1);
         assert_eq!(dependencies[0].meta.doc, "Base".to_string());
+    }
+
+    #[test]
+    fn test_deserialize_yake_target_type() {
+        let yml = r###"
+        meta:
+          doc: "Some docs"
+          version: 1.0.0
+        env:
+          PATH: $HOME/bin:$PATH
+        targets:
+          base:
+            meta:
+              doc: "Test command"
+              type: callable
+            exec:
+              - echo "i'm base"
+          group:
+            meta:
+              doc: "Test command"
+              type: group
+        "###;
+
+        let yake: Yake = serde_yaml::from_str(&yml).expect("Unable to parse");
+        assert_eq!(yake.targets.get("base").unwrap().meta.target_type, YakeTargetType::Callable);
+        assert_eq!(yake.targets.get("group").unwrap().meta.target_type, YakeTargetType::Group);
     }
 }
