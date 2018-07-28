@@ -1,0 +1,7 @@
+pipeline:
+  app:
+    image: rust:latest
+    environment:
+      - SHELL="/bin/bash"
+    commands:
+      - cargo test -- --nocapture
