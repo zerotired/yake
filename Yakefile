@@ -1,6 +1,7 @@
 meta:
   doc: "Some docs"
   version: 1.0.0
+  include_recursively: true
 env:
   PATH: $HOME/bin:$PATH
 targets:

@@ -1,0 +1,12 @@
+meta:
+  doc: "Sub yakefile"
+  version: 1.0.0
+env:
+  PATH: $HOME/bin:$PATH
+targets:
+  blubb:
+    meta:
+      doc: "Test command"
+      type: callable
+    exec:
+      - echo "i'm included and base"

@@ -32,6 +32,8 @@ pub struct YakeMeta {
     pub doc: String,
     /// Version information
     pub version: String,
+    /// Include Yakefiles of subfolders
+    pub include_recursively: Option<bool>,
 }
 
 /// Contains meta data for a yake target.
@@ -326,6 +328,7 @@ mod tests {
             meta: YakeMeta {
                 doc: "Bla".to_string(),
                 version: "1.0.0".to_string(),
+                include_recursively: None,
             },
             all_targets: HashMap::new(),
         }
