@@ -1,5 +1,5 @@
 pipeline:
-  app:
+  test:
     image: rust:latest
     environment:
       - SHELL="/bin/bash"
