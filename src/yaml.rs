@@ -1,8 +1,10 @@
-use serde_yaml;
 use std::fs::File;
 use std::io::prelude::*;
+
+use serde_yaml;
+use walkdir::{DirEntry, WalkDir};
+
 use yake::Yake;
-use walkdir::{WalkDir,DirEntry};
 
 pub fn load_yml_from_file(filename: &str) -> Yake {
     let mut f = File::open(filename).expect("File not found.");
@@ -51,8 +53,9 @@ pub fn load_yml_from_subdirs(directory: &str) -> Result<Vec<Yake>, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_yaml;
+
+    use super::*;
 
     #[test]
     fn test_find_yakefiles() {
