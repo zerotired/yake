@@ -1,7 +1,8 @@
-use serde::de::Error;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
+
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::de::Error;
 
 /// Represents the full yaml structure.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
@@ -76,8 +77,8 @@ pub enum YakeTargetType {
 /// Implements custom serde serializer for the YakeTargetType
 impl Serialize for YakeTargetType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         serializer.serialize_str(match *self {
             YakeTargetType::Group => "group",
@@ -89,8 +90,8 @@ impl Serialize for YakeTargetType {
 /// Implements custom serde deserializer for the YakeTargetType
 impl<'de> Deserialize<'de> for YakeTargetType {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         match s.as_str() {
@@ -181,6 +182,20 @@ impl Yake {
             .clone()
     }
 
+    /// add targets from yakes of subordinate yakes
+    pub fn add_sub_yake(&mut self, yake: Yake) -> () {
+        yake
+            .get_all_targets()
+            .iter()
+            .for_each(
+                |(name, target)|
+                    {
+                        &self.targets.insert(name.clone(), target.clone());
+                        ()
+                    }
+            );
+    }
+
     /// Execute a target and it's dependencies.
     pub fn execute(&self, target_name: &str) -> Result<String, String> {
         if self.has_target_name(target_name).is_err() {
@@ -248,8 +263,9 @@ impl YakeTarget {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_yaml;
+
+    use super::*;
 
     fn get_yake_targets() -> HashMap<String, YakeTarget> {
         let callable_target = YakeTarget {
@@ -410,5 +426,61 @@ mod tests {
         let yake: Yake = serde_yaml::from_str(&yml).expect("Unable to parse");
         assert_eq!(yake.targets.get("base").unwrap().meta.target_type, YakeTargetType::Callable);
         assert_eq!(yake.targets.get("group").unwrap().meta.target_type, YakeTargetType::Group);
+    }
+
+    #[test]
+    fn test_add_sub_yakes() {
+        let yml = r###"
+        meta:
+          doc: "Some docs"
+          version: 1.0.0
+        env:
+          PATH: $HOME/bin:$PATH
+        targets:
+          base:
+            meta:
+              doc: "Test command"
+              type: callable
+            exec:
+              - echo "i'm base"
+          group:
+            meta:
+              doc: "Test command"
+              type: group
+        "###;
+
+        let subyml = r###"
+        meta:
+          doc: "Some docs"
+          version: 1.0.0
+        env:
+          PATH: $HOME/bin:$PATH
+        targets:
+          base:
+            meta:
+              doc: "Test command overwritten"
+              type: callable
+            exec:
+              - echo "i'm base, but overwritten by a sub yake"
+          sub_base:
+            meta:
+              doc: "Sub: Test command"
+              type: callable
+            exec:
+              - echo "i'm sub base"
+        "###;
+
+        let mut yake: Yake = serde_yaml::from_str(&yml).expect("Unable to parse");
+        assert_eq!(yake.targets.get("base").unwrap().meta.target_type, YakeTargetType::Callable);
+        assert_eq!(yake.targets.get("group").unwrap().meta.target_type, YakeTargetType::Group);
+
+        let sub_yake: Yake = serde_yaml::from_str(subyml).expect("Unable to parse");
+        assert_eq!(sub_yake.targets.get("base").unwrap().meta.target_type, YakeTargetType::Callable);
+        assert_eq!(sub_yake.targets.get("sub_base").unwrap().meta.target_type, YakeTargetType::Callable);
+
+        yake.add_sub_yake(sub_yake);
+        assert_eq!(yake.targets.get("base").unwrap().meta.target_type, YakeTargetType::Callable);
+        assert_eq!(yake.targets.get("base").unwrap().meta.doc, "Test command overwritten");
+        assert_eq!(yake.targets.get("sub_base").unwrap().meta.target_type, YakeTargetType::Callable);
     }
 }

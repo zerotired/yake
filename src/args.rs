@@ -1,5 +1,6 @@
-use clap::{App, Arg};
 use std::collections::HashMap;
+
+use clap::{App, Arg};
 
 #[derive(Debug, PartialEq)]
 pub struct YakeArgs {

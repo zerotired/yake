@@ -9,4 +9,4 @@ targets:
       doc: "Test command"
       type: callable
     exec:
-      - echo "i'm included and base"
+      - echo "i'm a sub yake target and called blubb"
