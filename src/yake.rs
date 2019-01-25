@@ -106,14 +106,13 @@ impl<'de> Deserialize<'de> for YakeTargetType {
 impl Yake {
     /// Get's a list of all existing, callable target names
     pub fn get_target_names(&self) -> Vec<String> {
-        let mut ret = Vec::new();
-        for (target_name, target) in &self.get_all_targets() {
-            if target.meta.target_type == YakeTargetType::Callable {
-                ret.push(target_name.clone());
-            }
-        }
-
-        ret
+        self.get_all_targets()
+            .iter()
+            .filter(
+                |&(_name, target)|
+                    target.meta.target_type == YakeTargetType::Callable)
+            .map(|(name, _target)| name.clone())
+            .collect()
     }
 
     /// Gets a flattened, normalized map of all target names and it's respective yake
