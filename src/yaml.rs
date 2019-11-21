@@ -53,8 +53,6 @@ pub fn load_yml_from_subdirs(directory: &str) -> Result<Vec<Yake>, String> {
 
 #[cfg(test)]
 mod tests {
-    use serde_yaml;
-
     use super::*;
 
     #[test]
