@@ -4,8 +4,8 @@ version = "0.1.0"
 authors = ["Tim Eggert <tim@elbart.com>"]
 
 [dependencies]
-serde = "1.0"
-serde_derive = "1.0"
-serde_yaml = "0.7"
-clap = "2.31.2"
-walkdir = "2"
+serde = "1.0.102"
+serde_derive = "1.0.102"
+serde_yaml = "0.8.11"
+clap = "2.33.0"
+walkdir = "2.2.9"
