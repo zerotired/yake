@@ -1,8 +1,12 @@
 use std::collections::HashMap;
-use std::process::{Command, Stdio};
+use std::io;
+use std::process::Command;
+use std::str;
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use colored::Colorize;
 use serde::de::Error;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::io::Write;
 
 /// Represents the full yaml structure.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
@@ -77,8 +81,8 @@ pub enum YakeTargetType {
 /// Implements custom serde serializer for the YakeTargetType
 impl Serialize for YakeTargetType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         serializer.serialize_str(match *self {
             YakeTargetType::Group => "group",
@@ -90,8 +94,8 @@ impl Serialize for YakeTargetType {
 /// Implements custom serde deserializer for the YakeTargetType
 impl<'de> Deserialize<'de> for YakeTargetType {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         match s.as_str() {
@@ -108,9 +112,7 @@ impl Yake {
     pub fn get_target_names(&self) -> Vec<String> {
         self.get_all_targets()
             .iter()
-            .filter(
-                |&(_name, target)|
-                    target.meta.target_type == YakeTargetType::Callable)
+            .filter(|&(_name, target)| target.meta.target_type == YakeTargetType::Callable)
             .map(|(name, _target)| name.clone())
             .collect()
     }
@@ -163,7 +165,8 @@ impl Yake {
                     format!(
                         "Warning: Unknown dependency: {} in target: {}.",
                         dependency_name, target_name
-                    ).as_str(),
+                    )
+                    .as_str(),
                 );
 
                 ret.get_mut(&target_name).unwrap().push(dep_target);
@@ -183,16 +186,10 @@ impl Yake {
 
     /// add targets from yakes of subordinate yakes
     pub fn add_sub_yake(&mut self, yake: Yake) -> () {
-        yake
-            .get_all_targets()
-            .iter()
-            .for_each(
-                |(name, target)|
-                    {
-                        &self.targets.insert(name.clone(), target.clone());
-                        ()
-                    }
-            );
+        yake.get_all_targets().iter().for_each(|(name, target)| {
+            &self.targets.insert(name.clone(), target.clone());
+            ()
+        });
     }
 
     /// Execute a target and it's dependencies.
@@ -207,16 +204,34 @@ impl Yake {
         let run_target = |target: &YakeTarget| match target.exec {
             Some(ref commands) => {
                 for command in commands {
-                    println!("-- {}", command);
-                    Command::new("bash")
+                    println!(
+                        "{} {}:",
+                        "↪ Executing".bold().blue(),
+                        command.as_str().bold().green()
+                    );
+                    let output = Command::new("bash")
                         .arg("-c")
                         .arg(command.clone())
                         .envs(target.clone().env.unwrap_or_default())
-                        .stdout(Stdio::inherit())
-                        .stderr(Stdio::inherit())
                         .output()
                         .expect(&format!("failed to execute command \"{}\"", command));
+
+                    let stdout_str = str::from_utf8(&output.stdout).unwrap();
+                    let stderr_str = str::from_utf8(&output.stderr).unwrap();
+                    stdout_str.lines().into_iter().for_each(|line| {
+                        io::stdout()
+                            .write_all(format!("{}  {}\n", "┆".bold().green(), line).as_bytes())
+                            .expect(&format!("failed to write line to stdout \"{}\"", line));
+                    });
+                    stderr_str.lines().into_iter().for_each(|line| {
+                        io::stderr()
+                            .write_all(format!("{}  {}\n", "┆".bold().red(), line).as_bytes())
+                            .expect(&format!("failed to write line to stderr \"{}\"", line));
+                    });
                 }
+                io::stdout()
+                    .write_all(format!("{}\n", "↪ Done".bold().blue()).as_bytes())
+                    .expect(&format!("failed to write line to stdout"));
             }
             None => (),
         };
@@ -239,21 +254,23 @@ impl YakeTarget {
     pub fn get_sub_targets(&self, prefix: Option<String>) -> HashMap<String, YakeTarget> {
         let mut targets = HashMap::new();
         match self.targets {
-            Some(ref x) => for (target_name, target) in x {
-                if target.meta.target_type == YakeTargetType::Callable {
-                    let name = match prefix {
-                        Some(ref x) => format!("{}.{}", x, target_name),
-                        None => target_name.to_string(),
-                    };
-                    targets.insert(name, target.clone());
-                } else {
-                    let p = match prefix {
-                        Some(ref x) => Some(format!("{}.{}", x, target_name)),
-                        None => None,
-                    };
-                    targets.extend(target.get_sub_targets(p))
+            Some(ref x) => {
+                for (target_name, target) in x {
+                    if target.meta.target_type == YakeTargetType::Callable {
+                        let name = match prefix {
+                            Some(ref x) => format!("{}.{}", x, target_name),
+                            None => target_name.to_string(),
+                        };
+                        targets.insert(name, target.clone());
+                    } else {
+                        let p = match prefix {
+                            Some(ref x) => Some(format!("{}.{}", x, target_name)),
+                            None => None,
+                        };
+                        targets.extend(target.get_sub_targets(p))
+                    }
                 }
-            },
+            }
             None => (),
         }
         targets
@@ -316,9 +333,10 @@ mod tests {
             ),
             ("test".to_string(), callable_target),
             ("group".to_string(), group_target),
-        ].iter()
-            .cloned()
-            .collect()
+        ]
+        .iter()
+        .cloned()
+        .collect()
     }
 
     fn get_yake_dependencies(
@@ -423,8 +441,14 @@ mod tests {
         "###;
 
         let yake: Yake = serde_yaml::from_str(&yml).expect("Unable to parse");
-        assert_eq!(yake.targets.get("base").unwrap().meta.target_type, YakeTargetType::Callable);
-        assert_eq!(yake.targets.get("group").unwrap().meta.target_type, YakeTargetType::Group);
+        assert_eq!(
+            yake.targets.get("base").unwrap().meta.target_type,
+            YakeTargetType::Callable
+        );
+        assert_eq!(
+            yake.targets.get("group").unwrap().meta.target_type,
+            YakeTargetType::Group
+        );
     }
 
     #[test]
@@ -470,16 +494,37 @@ mod tests {
         "###;
 
         let mut yake: Yake = serde_yaml::from_str(&yml).expect("Unable to parse");
-        assert_eq!(yake.targets.get("base").unwrap().meta.target_type, YakeTargetType::Callable);
-        assert_eq!(yake.targets.get("group").unwrap().meta.target_type, YakeTargetType::Group);
+        assert_eq!(
+            yake.targets.get("base").unwrap().meta.target_type,
+            YakeTargetType::Callable
+        );
+        assert_eq!(
+            yake.targets.get("group").unwrap().meta.target_type,
+            YakeTargetType::Group
+        );
 
         let sub_yake: Yake = serde_yaml::from_str(subyml).expect("Unable to parse");
-        assert_eq!(sub_yake.targets.get("base").unwrap().meta.target_type, YakeTargetType::Callable);
-        assert_eq!(sub_yake.targets.get("sub_base").unwrap().meta.target_type, YakeTargetType::Callable);
+        assert_eq!(
+            sub_yake.targets.get("base").unwrap().meta.target_type,
+            YakeTargetType::Callable
+        );
+        assert_eq!(
+            sub_yake.targets.get("sub_base").unwrap().meta.target_type,
+            YakeTargetType::Callable
+        );
 
         yake.add_sub_yake(sub_yake);
-        assert_eq!(yake.targets.get("base").unwrap().meta.target_type, YakeTargetType::Callable);
-        assert_eq!(yake.targets.get("base").unwrap().meta.doc, "Test command overwritten");
-        assert_eq!(yake.targets.get("sub_base").unwrap().meta.target_type, YakeTargetType::Callable);
+        assert_eq!(
+            yake.targets.get("base").unwrap().meta.target_type,
+            YakeTargetType::Callable
+        );
+        assert_eq!(
+            yake.targets.get("base").unwrap().meta.doc,
+            "Test command overwritten"
+        );
+        assert_eq!(
+            yake.targets.get("sub_base").unwrap().meta.target_type,
+            YakeTargetType::Callable
+        );
     }
 }

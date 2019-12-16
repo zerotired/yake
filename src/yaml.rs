@@ -10,7 +10,8 @@ pub fn load_yml_from_file(filename: &str) -> Yake {
     let mut f = File::open(filename).expect("File not found.");
     let mut contents = String::new();
 
-    f.read_to_string(&mut contents).expect("Error while reading file.");
+    f.read_to_string(&mut contents)
+        .expect("Error while reading file.");
 
     serde_yaml::from_str(&contents).expect("Unable to parse")
 }
@@ -19,7 +20,8 @@ fn find_yakefiles(directory: &str) -> Result<Vec<DirEntry>, String> {
     let mut files = Vec::new();
 
     fn is_yakefile_or_dir(entry: &DirEntry) -> bool {
-        entry.file_name()
+        entry
+            .file_name()
             .to_str()
             .map(|s| s == "Yakefile" || entry.path().is_dir())
             .unwrap_or(false)

@@ -50,6 +50,9 @@ targets:
         exec:
           - "echo {{meta.version}}"
           - docker-compose build
+          - |
+            brew info openssl
+            echo "Hello World"
       mysql2:
         meta:
           doc: "Docs for docker mysql command"

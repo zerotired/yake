@@ -6,6 +6,7 @@ extern crate clap;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+extern crate colored;
 extern crate serde_yaml;
 extern crate walkdir;
 
@@ -33,9 +34,7 @@ fn main() {
 
     sub_yakes
         .iter()
-        .for_each(
-            |sub_yake|
-                yake.add_sub_yake(sub_yake.clone()));
+        .for_each(|sub_yake| yake.add_sub_yake(sub_yake.clone()));
 
     match yake.has_target_name(&yake_args.target) {
         Err(x) => {

@@ -10,3 +10,4 @@ targets:
       type: callable
     exec:
       - echo "i'm a sub yake target and called blubb"
+
