@@ -7,6 +7,7 @@ use colored::Colorize;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::io::Write;
+use std::hash::Hash;
 
 /// Represents the full yaml structure.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
@@ -192,6 +193,43 @@ impl Yake {
         });
     }
 
+    /// fetches all environment variables of the current target and it's parent targets
+    pub fn get_target_env_vars(&self, target_name: &str) -> Result<HashMap<String, String>, String> {
+        if self.has_target_name(target_name).is_err() {
+            return Err(format!("Unknown target: {}", target_name).to_string());
+        }
+
+        let target = self.get_target_by_name(target_name).unwrap();
+        let mut envs = self.env.clone().unwrap_or_default();
+
+        let parent_targets: Vec<&str> = target_name.split(".").collect();
+
+        for (i, _t) in parent_targets.iter().enumerate() {
+            let parent_target_name = parent_targets[0..i+1].join(".");
+            let p = self.get_target_by_name(&parent_target_name).expect(&format!("Unknown Target {}", parent_target_name));
+            match p.env {
+                Some(x) => envs.extend(x),
+                None => ()
+            }
+        }
+
+        envs.extend(target.env.unwrap_or_default());
+
+        // filter blacklisted vars which e.g. if PATH would not be filtered,
+        // the subprocess execution would panic.
+        let (invalid, valid): (HashMap<&String, &String>, HashMap<&String, &String>) = envs.iter().partition(|&k| {
+            k.0 == "TERM" || k.0 == "TZ" || k.0 == "LANG" || k.0 == "PATH" || k.0 == "HOME"
+        });
+
+        if invalid.len() > 0 {
+            panic!("{} {:?}", "Found invalid/forbidden env variables".bold().red(), invalid.keys());
+        }
+
+        Ok(valid.iter().map(|(&k, &v)| {
+            (k.clone(), v.clone())
+        }).collect())
+    }
+
     /// Execute a target and it's dependencies.
     pub fn execute(&self, target_name: &str) -> Result<String, String> {
         if self.has_target_name(target_name).is_err() {
@@ -212,7 +250,7 @@ impl Yake {
                     let output = Command::new("bash")
                         .arg("-c")
                         .arg(command.clone())
-                        .envs(target.clone().env.unwrap_or_default())
+                        .envs(self.get_target_env_vars(target_name).unwrap_or_default())
                         .output()
                         .expect(&format!("failed to execute command \"{}\"", command));
 
@@ -284,6 +322,9 @@ mod tests {
     use super::*;
 
     fn get_yake_targets() -> HashMap<String, YakeTarget> {
+        let mut env = HashMap::new();
+        env.insert("WEBAPP_PORT".to_string(), "6543".to_string());
+        env.insert("POSTGRES_PORT".to_string(), "5432".to_string());
         let callable_target = YakeTarget {
             targets: None,
             meta: YakeTargetMeta {
@@ -291,10 +332,14 @@ mod tests {
                 target_type: YakeTargetType::Callable,
                 depends: Some(vec!["base".to_string()]),
             },
-            env: None,
+            env: Some(env),
             exec: None,
         };
 
+        let mut env_sub = HashMap::new();
+        env_sub.insert("BASE".to_string(), "OVERWRITE".to_string());
+        env_sub.insert("DOCKER_PORT".to_string(), "1234".to_string());
+        env_sub.insert("POSTGRES_PORT".to_string(), "54322".to_string());
         let sub_target = YakeTarget {
             targets: None,
             meta: YakeTargetMeta {
@@ -302,7 +347,7 @@ mod tests {
                 target_type: YakeTargetType::Callable,
                 depends: Some(vec!["base".to_string()]),
             },
-            env: None,
+            env: Some(env_sub),
             exec: None,
         };
 
@@ -353,11 +398,13 @@ mod tests {
     fn get_yake() -> Yake {
         let targets = get_yake_targets();
         let dependencies = get_yake_dependencies(&targets);
+        let mut env_root = HashMap::new();
+        env_root.insert("BASE".to_string(), "BASEVAL".to_string());
 
         Yake {
             targets,
             dependencies,
-            env: None,
+            env: Some(env_root),
             meta: YakeMeta {
                 doc: "Bla".to_string(),
                 version: "1.0.0".to_string(),
@@ -417,6 +464,31 @@ mod tests {
         let dependencies = yake.get_dependencies_by_name("group.sub");
         assert_eq!(dependencies.len(), 1);
         assert_eq!(dependencies[0].meta.doc, "Base".to_string());
+    }
+
+    #[test]
+    fn test_get_env_vars() {
+        let yake = get_yake();
+
+        let envs = yake.get_target_env_vars("base").unwrap_or_default();
+        assert_eq!(envs.len(), 1);
+        assert_eq!(envs.get("BASE").unwrap(), "BASEVAL");
+
+        let envs = yake.get_target_env_vars("test").unwrap_or_default();
+        assert_eq!(envs.len(), 3);
+        assert_eq!(envs.get("BASE").unwrap(), "BASEVAL");
+        assert_eq!(envs.get("WEBAPP_PORT").unwrap(), "6543");
+        assert_eq!(envs.get("POSTGRES_PORT").unwrap(), "5432");
+
+        let envs = yake.get_target_env_vars("group").unwrap_or_default();
+        assert_eq!(envs.len(), 1);
+        assert_eq!(envs.get("BASE").unwrap(), "BASEVAL");
+
+        let envs = yake.get_target_env_vars("group.sub").unwrap_or_default();
+        assert_eq!(envs.len(), 3);
+        assert_eq!(envs.get("BASE").unwrap(), "OVERWRITE");
+        assert_eq!(envs.get("DOCKER_PORT").unwrap(), "1234");
+        assert_eq!(envs.get("POSTGRES_PORT").unwrap(), "54322");
     }
 
     #[test]

@@ -9,8 +9,6 @@ via CLI.
 Features (TODO)
 ===============
 - auto completion support for bash, zsh, ...
-- target dependencies
-- recursive inclusion of yaml files
 - ...
 
 Usage

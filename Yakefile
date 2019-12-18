@@ -3,7 +3,8 @@ meta:
   version: 1.0.0
   include_recursively: true
 env:
-  PATH: $HOME/bin:$PATH
+  MAIN: XXX
+
 targets:
   base:
     meta:
@@ -15,6 +16,8 @@ targets:
     meta:
       doc: "Docs for docker command"
       type: group
+    env:
+      WEBAPP_PORT: 6543
     targets:
       postgres:
         meta:
@@ -30,6 +33,9 @@ targets:
           - "echo {{meta.version}}"
           - cat /etc/hosts
           - echo $POSTGRES_PORT
+          - echo $WEBAPP_PORT
+          - echo $BLA
+          - echo $MAIN
   docker2:
     meta:
       doc: "Docs for docker command"
