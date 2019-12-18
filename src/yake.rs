@@ -497,7 +497,7 @@ mod tests {
         let mut yake = get_yake();
         yake.env = Some(env);
 
-        yake.get_target_env_vars("base");
+        let _ = yake.get_target_env_vars("base");
     }
 
     #[test]
