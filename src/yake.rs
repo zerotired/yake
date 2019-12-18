@@ -7,7 +7,6 @@ use colored::Colorize;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::io::Write;
-use std::hash::Hash;
 
 /// Represents the full yaml structure.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
