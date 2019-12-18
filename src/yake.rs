@@ -198,24 +198,22 @@ impl Yake {
             return Err(format!("Unknown target: {}", target_name).to_string());
         }
 
-        let target = self.get_target_by_name(target_name).unwrap();
         let mut envs = self.env.clone().unwrap_or_default();
-
         let parent_targets: Vec<&str> = target_name.split(".").collect();
 
+        // iterate over parent targets and extend the env with each of them, starting from the
+        // highest hierarchy level
         for (i, _t) in parent_targets.iter().enumerate() {
             let parent_target_name = parent_targets[0..i+1].join(".");
             let p = self.get_target_by_name(&parent_target_name).expect(&format!("Unknown Target {}", parent_target_name));
-            match p.env {
-                Some(x) => envs.extend(x),
-                None => ()
-            }
+            envs.extend(p.env.unwrap_or_default());
         }
 
+        let target = self.get_target_by_name(target_name).unwrap();
         envs.extend(target.env.unwrap_or_default());
 
-        // filter blacklisted vars which e.g. if PATH would not be filtered,
-        // the subprocess execution would panic.
+        // filter blacklisted vars like PATH. If not not filtered,
+        // the subprocess execution would panic due to path expansion.
         let (invalid, valid): (HashMap<&String, &String>, HashMap<&String, &String>) = envs.iter().partition(|&k| {
             k.0 == "TERM" || k.0 == "TZ" || k.0 == "LANG" || k.0 == "PATH" || k.0 == "HOME"
         });
@@ -488,6 +486,18 @@ mod tests {
         assert_eq!(envs.get("BASE").unwrap(), "OVERWRITE");
         assert_eq!(envs.get("DOCKER_PORT").unwrap(), "1234");
         assert_eq!(envs.get("POSTGRES_PORT").unwrap(), "54322");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_get_env_vars_bad() {
+        let mut env = HashMap::new();
+        env.insert("WEBAPP_PORT".to_string(), "6543".to_string());
+        env.insert("PATH".to_string(), "$HOME/bin:$PATH".to_string());
+        let mut yake = get_yake();
+        yake.env = Some(env);
+
+        yake.get_target_env_vars("base");
     }
 
     #[test]
